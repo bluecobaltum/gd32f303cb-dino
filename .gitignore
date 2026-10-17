@@ -1,0 +1,19 @@
+/sdk/
+/packages/
+/document/
+/Keil MDK Crack/
+/mdk526(1).exe
+/env.ps1
+/check-env.ps1
+/projects/GD32F303CB/build/
+/projects/GD32F303CB/output/
+/projects/GD32F303CB/list/
+/projects/GD32F303CB/RTE/
+/projects/GD32F303CB/*.uvoptx
+/projects/GD32F303CB/*.uvguix.*
+/projects/GD32F303CB/*.log
+/projects/GD32F303CB/*.backup.c
+/projects/GD32F303CB/generate-project.ps1
+/projects/GD32F303CB/EventRecorderStub.scvd
+__pycache__/
+*.pyc
