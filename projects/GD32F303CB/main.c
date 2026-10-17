@@ -6,6 +6,7 @@
 #define OLED_SCL_PIN GPIO_PIN_6
 #define OLED_SDA_PIN GPIO_PIN_7
 #define OLED_I2C_WRITE_ADDRESS 0x78U /* 7-bit address 0x3C + write bit */
+#define DISPLAY_MODE_INTERVAL_MS 8000U
 
 /* LED1 means the OLED acknowledged; LED4 means an I2C failure. */
 #define LED_OK_PIN GPIO_PIN_0
@@ -34,12 +35,17 @@ static uint8_t last_jump;
 static uint8_t last_restart;
 static uint8_t last_pause;
 static uint8_t pause_cooldown;
+static volatile uint32_t uptime_ms;
+
+void SysTick_Handler(void)
+{
+    ++uptime_ms;
+}
 
 static void delay_ms(uint32_t milliseconds)
 {
-    while (milliseconds-- != 0U) {
-        while ((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) == 0U) {
-        }
+    uint32_t start = uptime_ms;
+    while ((uint32_t)(uptime_ms - start) < milliseconds) {
     }
 }
 
@@ -128,7 +134,7 @@ static uint8_t oled_init(void)
         0xD9U, 0x1FU,      /* Precharge period. */
         0xDBU, 0x40U,      /* VCOMH level. */
         0x20U, 0x00U,      /* Horizontal memory addressing mode. */
-        0xA6U,             /* Normal (not inverted) display. */
+        0xA6U,             /* Start in normal display mode. */
         0xA4U,             /* Show the pixels stored in display RAM. */
         0xAFU              /* Display on. */
     };
@@ -419,6 +425,9 @@ static void update_game(uint8_t jump, uint8_t duck, uint8_t restart, uint8_t pau
 
 int main(void)
 {
+    uint32_t last_mode_switch_ms;
+    uint8_t night_mode = 0U;
+
     rcu_periph_clock_enable(RCU_GPIOB);
     rcu_periph_clock_enable(RCU_GPIOC);
     rcu_periph_clock_enable(RCU_AF);
@@ -446,7 +455,8 @@ int main(void)
 
     SysTick->LOAD = (SystemCoreClock / 1000U) - 1U;
     SysTick->VAL = 0U;
-    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
+                    SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
     delay_ms(120U); /* Wait for switched power and the OLED reset RC network. */
 
     reset_game();
@@ -460,6 +470,8 @@ int main(void)
         }
     }
 
+    last_mode_switch_ms = uptime_ms;
+
     for (;;) {
         uint8_t jump = pressed(GPIOB, KEY_JUMP_PIN);
         uint8_t duck = pressed(GPIOC, KEY_DUCK_PIN);
@@ -469,6 +481,15 @@ int main(void)
         draw_game();
         if (oled_show_image() == 0U) {
             gpio_bit_reset(GPIOB, LED_ERROR_PIN);
+        }
+        if ((uint32_t)(uptime_ms - last_mode_switch_ms) >= DISPLAY_MODE_INTERVAL_MS) {
+            uint8_t next_mode = (night_mode == 0U) ? 1U : 0U;
+            if (oled_command((next_mode != 0U) ? 0xA7U : 0xA6U) != 0U) {
+                night_mode = next_mode;
+                last_mode_switch_ms = uptime_ms;
+            } else {
+                gpio_bit_reset(GPIOB, LED_ERROR_PIN);
+            }
         }
         delay_ms(15U); /* Shorter frame dwell; display transfers still take time. */
     }
