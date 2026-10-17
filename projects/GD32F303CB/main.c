@@ -53,20 +53,20 @@ static void i2c_pause(void)
 
 static void i2c_start(void)
 {
-    gpio_bit_set(GPIOB, OLED_SDA_PIN | OLED_SCL_PIN);
+    GPIO_BOP(GPIOB) = OLED_SDA_PIN | OLED_SCL_PIN;
     i2c_pause();
-    gpio_bit_reset(GPIOB, OLED_SDA_PIN);
+    GPIO_BC(GPIOB) = OLED_SDA_PIN;
     i2c_pause();
-    gpio_bit_reset(GPIOB, OLED_SCL_PIN);
+    GPIO_BC(GPIOB) = OLED_SCL_PIN;
 }
 
 static void i2c_stop(void)
 {
-    gpio_bit_reset(GPIOB, OLED_SDA_PIN);
+    GPIO_BC(GPIOB) = OLED_SDA_PIN;
     i2c_pause();
-    gpio_bit_set(GPIOB, OLED_SCL_PIN);
+    GPIO_BOP(GPIOB) = OLED_SCL_PIN;
     i2c_pause();
-    gpio_bit_set(GPIOB, OLED_SDA_PIN);
+    GPIO_BOP(GPIOB) = OLED_SDA_PIN;
     i2c_pause();
 }
 
@@ -77,23 +77,23 @@ static uint8_t i2c_write_byte(uint8_t value)
 
     for (bit = 0U; bit < 8U; ++bit) {
         if ((value & 0x80U) != 0U) {
-            gpio_bit_set(GPIOB, OLED_SDA_PIN);
+            GPIO_BOP(GPIOB) = OLED_SDA_PIN;
         } else {
-            gpio_bit_reset(GPIOB, OLED_SDA_PIN);
+            GPIO_BC(GPIOB) = OLED_SDA_PIN;
         }
         i2c_pause();
-        gpio_bit_set(GPIOB, OLED_SCL_PIN);
+        GPIO_BOP(GPIOB) = OLED_SCL_PIN;
         i2c_pause();
-        gpio_bit_reset(GPIOB, OLED_SCL_PIN);
+        GPIO_BC(GPIOB) = OLED_SCL_PIN;
         value <<= 1;
     }
 
-    gpio_bit_set(GPIOB, OLED_SDA_PIN); /* Release SDA for the ACK bit. */
+    GPIO_BOP(GPIOB) = OLED_SDA_PIN; /* Release SDA for the ACK bit. */
     i2c_pause();
-    gpio_bit_set(GPIOB, OLED_SCL_PIN);
+    GPIO_BOP(GPIOB) = OLED_SCL_PIN;
     i2c_pause();
-    acknowledged = (gpio_input_bit_get(GPIOB, OLED_SDA_PIN) == RESET) ? 1U : 0U;
-    gpio_bit_reset(GPIOB, OLED_SCL_PIN);
+    acknowledged = ((GPIO_ISTAT(GPIOB) & OLED_SDA_PIN) == 0U) ? 1U : 0U;
+    GPIO_BC(GPIOB) = OLED_SCL_PIN;
     i2c_pause();
     return acknowledged;
 }
@@ -470,6 +470,6 @@ int main(void)
         if (oled_show_image() == 0U) {
             gpio_bit_reset(GPIOB, LED_ERROR_PIN);
         }
-        delay_ms(20U); /* Target a stable game tick after the shorter OLED updates. */
+        delay_ms(15U); /* Shorter frame dwell; display transfers still take time. */
     }
 }
